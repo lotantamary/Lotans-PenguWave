@@ -1,6 +1,6 @@
 # PenguWave: Security Operations Portal
 
-A security operations portal for triaging security events. This repo implements **Track A (Backend)**: a real, secure backend for PenguWave, with the existing React frontend wired to it end-to-end.
+A security operations portal for triaging security events. This repo implements **Track A (Backend)**: a real, secure backend for PenguWave, with the existing React frontend wired to it end-to-end — and every security flaw planted in the starter found and fixed.
 
 ## What I built
 
@@ -8,7 +8,7 @@ A security operations portal for triaging security events. This repo implements 
 - **Session auth via an httpOnly cookie** (not a token in `localStorage`), **server-side role enforcement** (admin / analyst / viewer), input validation, consistent JSON errors, and **SQLite persistence** that survives restarts.
 - The frontend rewired to the real API, with the planted **security flaws fixed** (see findings below).
 - **Threat-aware ingestion** (signature feature): on ingest, the backend scans every event for embedded attack payloads (XSS, spreadsheet/formula injection) and flags them, so the UI can warn analysts.
-- A **34-test backend suite** plus frontend unit tests covering the security behavior.
+- **43 automated tests** (Vitest + Supertest) covering the security behavior — auth, RBAC, mid-session disable, and threat flags.
 
 ## Running it
 
@@ -35,7 +35,7 @@ These are seeded throwaway dev logins (overridable via `SEED_ADMIN_PW` / `SEED_A
 ### Tests
 
 ```bash
-npm run test:server   # backend + frontend unit tests (Vitest + Supertest)
+npm run test:server   # 43 tests: backend (Supertest) + frontend unit tests
 ```
 
 ## Architecture
@@ -50,9 +50,26 @@ React UI ──httpOnly cookie──▶ Express (Node + TypeScript)  :3001
                                           ▲ seeded from data/mock_events.json
 ```
 
-- `server/db.ts` — schema; `server/seed.ts` — idempotent seed + threat scan; `server/threat.ts` — payload scanner.
-- `server/auth.ts` — password verify, sessions, cookie, role middleware; `server/validation.ts` — zod schemas; `server/errors.ts` — error type + handler.
-- `server/routes/{auth,events,users}.routes.ts`, assembled by `server/app.ts`, booted by `server/index.ts`.
+### Project structure
+
+```
+server/
+  index.ts            bootstrap: open db, seed, listen :3001
+  app.ts              buildApp(db): middleware + routers + error handler
+  db.ts               SQLite schema (users, events, sessions)
+  seed.ts             idempotent seed + threat scan on ingest
+  threat.ts           scanForThreats(): XSS / formula-injection detection
+  auth.ts             bcrypt verify, sessions, httpOnly cookie, requireAuth/requireAdmin
+  validation.ts       zod schemas
+  errors.ts           ApiError + central error handler
+  routes/             auth.routes.ts, events.routes.ts, users.routes.ts
+  __tests__/          Supertest integration suites
+src/
+  api.ts              cookie-based API client (no token, no secret)
+  auth/AuthContext.tsx  auth state from /api/auth/me
+  utils.ts            real sanitizeHtml (DOMPurify) + injection-safe toCsv
+  pages/, components/   Events + Users pages, login, navbar (wired to the API)
+```
 
 ## Security findings in the starter — and how I fixed them
 
@@ -76,10 +93,20 @@ The starter shipped with several planted vulnerabilities. I found and fixed all 
 - **Threat-aware ingestion** turns the planted attack data into a feature: the system that stores security events also recognizes attacks hidden inside them.
 - **SQLite** for zero-config persistence that survives restarts and is easy to reason about.
 
+## Demo (5-minute presentation)
+
+A before/after that shows the security thinking, not just features:
+
+1. **The wall of findings** — the 7 vulnerabilities table above: proof I reviewed the starter, not just built on top of it.
+2. **Live exploit (original starter):** open `evt-052` (or type `<img src=x onerror=alert(1)>` into search) → a JavaScript `alert` fires. The no-op sanitizer + `dangerouslySetInnerHTML` made the app execute attacker data.
+3. **The chain:** that token sat in `localStorage`, so the XSS could steal it and impersonate a user — a frontend bug defeating authentication.
+4. **The fix (this repo):** the same `evt-052` now renders inert (`<img src="x">`, no `onerror`), the session is an httpOnly cookie the script can't read, and the event is auto-flagged ⚠ by threat-aware ingestion. A `viewer`/`analyst` hitting `/api/users` gets a server-side `403`.
+
 ## With more time
 
 - CSRF tokens (defense-in-depth alongside SameSite), and login rate limiting / lockout.
-- Session refresh/rotation and a server-side session revocation list UI.
+- Session refresh/rotation and a server-side session revocation UI.
 - Pagination and indexing on `/api/events` for large datasets.
 - An audit log of auth events and authorization denials.
 - Broader automated coverage (single-event endpoint, formula-injection flag, TTL expiry) and a browser E2E test.
+- The optional repo-scanner extension sketched in `docs/superpowers/plans/` — generalize the threat scanner to audit any repo/codebase.
