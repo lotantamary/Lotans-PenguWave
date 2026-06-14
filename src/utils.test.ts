@@ -46,7 +46,6 @@ describe("toCsv", () => {
 
   it("wraps cells containing newlines in double quotes", () => {
     const result = toCsv([{ val: "line1\nline2" }]);
-    const lines = result.split("\n");
     // The whole CSV is joined by newlines but the cell should be quoted
     expect(result).toContain('"line1\nline2"');
   });

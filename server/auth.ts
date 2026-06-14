@@ -20,6 +20,7 @@ export interface SessionUser {
 
 // Augment Express so req.user and req.db are typed throughout the server
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: SessionUser;

@@ -1,43 +1,61 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User } from "../types";
+import { getUsers, createUser, deleteUser } from "../api";
 
 export default function UsersPage() {
-  // TODO: add role check before rendering
-  // if (user.role !== 'admin') return null;
-
-  const [users, setUsers] = useState<User[]>([
-    { id: "1", email: "admin@penguwave.io", role: "admin", status: "active", password: "admin123" },
-    { id: "2", email: "analyst@penguwave.io", role: "analyst", status: "active", password: "pass456" },
-    { id: "3", email: "viewer@penguwave.io", role: "viewer", status: "disabled", password: "view789" },
-  ]);
-
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState("analyst");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const loadUsers = () => {
+    setLoading(true);
+    getUsers()
+      .then(setUsers)
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load users"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEmail || !newPassword) return;
-
-    const newUser: User = {
-      id: String(Date.now()),
-      email: newEmail,
-      role: newRole,
-      status: "active",
-      password: newPassword,
-    };
-
-    setUsers([...users, newUser]);
-    setNewEmail("");
-    setNewPassword("");
-    setNewRole("analyst");
-    setShowForm(false);
+    setFormError(null);
+    setSubmitting(true);
+    try {
+      await createUser({ email: newEmail, password: newPassword, role: newRole });
+      setNewEmail("");
+      setNewPassword("");
+      setNewRole("analyst");
+      setShowForm(false);
+      loadUsers();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to create user");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setUsers(users.filter((u) => u.id !== id));
+  const handleDelete = async (id: string) => {
+    setDeleteError(null);
+    try {
+      await deleteUser(id);
+      loadUsers();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete user");
+    }
   };
+
+  if (loading) return <div className="page-container"><p>Loading users…</p></div>;
+  if (error) return <div className="page-container"><p style={{ color: "red" }}>{error}</p></div>;
 
   return (
     <div className="page-container">
@@ -48,9 +66,14 @@ export default function UsersPage() {
         </button>
       </div>
 
+      {deleteError && (
+        <p style={{ color: "red", marginBottom: 12, fontSize: 13 }}>{deleteError}</p>
+      )}
+
       {showForm && (
         <div style={{ border: "1px solid #ddd", padding: 16, marginBottom: 20, background: "#fafafa" }}>
           <h3 style={{ marginBottom: 12 }}>New User</h3>
+          {formError && <p style={{ color: "red", marginBottom: 8, fontSize: 13 }}>{formError}</p>}
           <form onSubmit={handleAddUser}>
             <div style={{ marginBottom: 8 }}>
               <label>Email</label>
@@ -65,10 +88,10 @@ export default function UsersPage() {
             <div style={{ marginBottom: 8 }}>
               <label>Password</label>
               <input
-                type="text"
+                type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="password"
+                placeholder="••••••••"
                 required
               />
             </div>
@@ -80,8 +103,8 @@ export default function UsersPage() {
                 <option value="viewer">Viewer</option>
               </select>
             </div>
-            <button type="submit" className="btn-primary">
-              Create User
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? "Creating…" : "Create User"}
             </button>
           </form>
         </div>
@@ -93,7 +116,6 @@ export default function UsersPage() {
             <th>Email</th>
             <th>Role</th>
             <th>Status</th>
-            <th>Password</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -107,7 +129,6 @@ export default function UsersPage() {
                   {user.status}
                 </span>
               </td>
-              <td style={{ fontFamily: "monospace", fontSize: 13 }}>{user.password}</td>
               <td>
                 <a
                   href="#"
