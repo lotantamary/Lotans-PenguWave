@@ -18,6 +18,16 @@ starter ships a polished React UI running on mock data with no backend, an API c
 describing the intended server, and a set of deliberately planted security traps. This
 project builds the backend, wires the UI to it end-to-end, and neutralizes the traps.
 
+**Why this stands out (the moat).** The graded Track-A checklist (real auth, sessions,
+RBAC, validation, persistence) is what *every* backend submission will do — table stakes.
+Our edge is the planted traps that live in the **frontend and the data**, where a
+backend-only person never looks: the fake `sanitizeHtml` + the weaponized event payloads,
+the `localStorage` token an XSS can steal, the client-side `isAdmin()`. We find them,
+exploit them live, and fix them properly — and we turn the *finding* into a built feature
+(threat-aware ingestion, §8). That combination — a working secure backend **plus** a live
+exploit-and-defeat story in the language a security company speaks — is what makes this
+unique rather than one more checklist backend.
+
 ## 2. Goals
 
 - A correct, working backend implementing the API contract (`docs/api_contract.md`), with
@@ -107,7 +117,7 @@ React UI ──httpOnly cookie──▶ Express (Node + TypeScript)
 ```
 
 **Stack:** Node + TypeScript + Express + zod (input validation) + better-sqlite3
-(persistence, zero-config) + bcrypt (password hashing) + httpOnly cookies (sessions).
+(persistence, zero-config) + bcryptjs (password hashing) + httpOnly cookies (sessions).
 Vite dev proxy forwards `/api` to the backend so cookies are same-origin.
 
 Rationale: same language as the frontend (less friction, reuse types), and every piece is
