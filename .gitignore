@@ -8,3 +8,6 @@ dist
 .env.*
 *.local
 .DS_Store
+
+# Local-only planning notes (kept out of the repo)
+planning-local/
