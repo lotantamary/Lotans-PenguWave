@@ -85,6 +85,22 @@
 
 ---
 
+## Phase 9 — STRETCH extension (only if Phases 0–8 are fully done and time remains)
+
+> The original "scanner" idea, kept alive. Same threat signatures (`server/threat.ts`),
+> pointed outward at a whole repo/codebase instead of just our event stream. Strictly
+> optional — never start this at the cost of the graded backend. Revisit creatively with
+> the user before building; the shape below is a starting sketch, not a commitment.
+
+- [ ] **Task 9.1 — Repo threat-scan CLI/endpoint (sketch).** Reuse `scanForThreats`-style
+  signatures to walk a target directory (or a cloned GitHub repo) and report files/lines
+  that contain XSS sinks (`dangerouslySetInnerHTML` + unsanitized input), formula-injection
+  in data, hardcoded secrets (`*_sk_*`, `pw_live_*`), and tokens in `localStorage`. Output a
+  findings report (JSON + human-readable). This generalizes "the traps I found by hand" into
+  "a tool that finds them automatically" — the demo flourish that shows product thinking.
+- [ ] **Task 9.2 — Decide with the user** whether to surface it as a CLI (`npm run scan <path>`),
+  a backend endpoint, or a small UI panel, based on remaining time.
+
 ## Priority if time runs short
 Must-ship: Phases 0–4 (graded secure backend) + Phase 5–6 wiring. Next: threat badges (6.1) and review (8.2). Only cuttable piece: surfacing threat flags in the UI — detection itself (1.1) is cheap and stays in the backend.
 
