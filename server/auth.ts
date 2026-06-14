@@ -84,7 +84,8 @@ export function setSessionCookie(res: Response, token: string): void {
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    // Sent only over HTTPS in production; off for local http dev.
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: SESSION_TTL_MS,
   });

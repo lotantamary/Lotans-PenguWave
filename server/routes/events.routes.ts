@@ -24,9 +24,9 @@ interface ParsedEvent {
   id: string;
   timestamp: string | null;
   severity: string | null;
-  title: string | null;
-  description: string | null;
-  assetHostname: string | null;
+  title: string;
+  description: string;
+  assetHostname: string;
   assetIp: string | null;
   sourceIp: string | null;
   tags: unknown[];
@@ -37,6 +37,10 @@ interface ParsedEvent {
 function parseEventRow(row: EventRow): ParsedEvent {
   return {
     ...row,
+    // Coalesce text fields the UI renders/searches so a null record can't crash the client.
+    title: row.title ?? "",
+    description: row.description ?? "",
+    assetHostname: row.assetHostname ?? "",
     tags: JSON.parse(row.tags) as unknown[],
     threatFlags: JSON.parse(row.threatFlags) as unknown[],
   };
