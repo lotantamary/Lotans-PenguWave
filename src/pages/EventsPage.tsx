@@ -1,14 +1,36 @@
-import { useState } from "react";
-import mockEvents from "../../data/mock_events.json";
+import { useState, useEffect } from "react";
 import { SecurityEvent } from "../types";
-import { sanitizeHtml } from "../utils";
+import { sanitizeHtml, toCsv } from "../utils";
+import { getEvents } from "../api";
+
+function severityColor(s: string): string {
+  if (s === "CRITICAL") return "#8b0000";
+  if (s === "HIGH") return "red";
+  if (s === "MEDIUM") return "orange";
+  if (s === "LOW") return "green";
+  return "#666";
+}
+
+function formatDate(ts: string | null): string {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return isNaN(d.getTime()) ? "—" : d.toLocaleString();
+}
 
 export default function EventsPage() {
+  const [events, setEvents] = useState<SecurityEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [severityFilter, setSeverityFilter] = useState("ALL");
   const [selectedEvent, setSelectedEvent] = useState<SecurityEvent | null>(null);
 
-  const events = mockEvents as SecurityEvent[];
+  useEffect(() => {
+    getEvents()
+      .then(setEvents)
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load events"))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = events.filter((e) => {
     const matchesSearch =
@@ -19,11 +41,31 @@ export default function EventsPage() {
     return matchesSearch && matchesSeverity;
   });
 
-  const severityColor = (s: string) => {
-    if (s === "HIGH") return "red";
-    if (s === "MEDIUM") return "orange";
-    return "green";
+  const handleExport = () => {
+    const csv = toCsv(
+      filtered.map((e) => ({
+        id: e.id,
+        timestamp: e.timestamp ?? "",
+        severity: e.severity,
+        title: e.title,
+        assetHostname: e.assetHostname,
+        assetIp: e.assetIp ?? "",
+        sourceIp: e.sourceIp ?? "",
+        tags: e.tags.join(";"),
+        threatFlags: e.threatFlags.join(";"),
+      }))
+    );
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "penguwave_events_export.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   };
+
+  if (loading) return <div className="page-container"><p>Loading events…</p></div>;
+  if (error) return <div className="page-container"><p style={{ color: "red" }}>{error}</p></div>;
 
   return (
     <div className="page-container">
@@ -40,9 +82,10 @@ export default function EventsPage() {
         <select
           value={severityFilter}
           onChange={(e) => setSeverityFilter(e.target.value)}
-          style={{ width: 140 }}
+          style={{ width: 160 }}
         >
           <option value="ALL">All Severities</option>
+          <option value="CRITICAL">Critical</option>
           <option value="HIGH">High</option>
           <option value="MEDIUM">Medium</option>
           <option value="LOW">Low</option>
@@ -50,71 +93,62 @@ export default function EventsPage() {
       </div>
 
       {search && (
-        <p>
-          <span
-            dangerouslySetInnerHTML={{
-              __html: sanitizeHtml("Showing results for: <strong>" + search + "</strong>"),
-            }}
-          />
-          {" "}({filtered.length} events)
+        <p style={{ marginBottom: 8 }}>
+          Showing results for: <strong>{search}</strong> ({filtered.length} events)
         </p>
       )}
 
-      <table>
-        <thead>
-          <tr>
-            <th>Severity</th>
-            <th>Title</th>
-            <th>Asset</th>
-            <th>Source IP</th>
-            <th>Timestamp</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((event) => (
-            <tr
-              key={event.id}
-              onClick={() => setSelectedEvent(event)}
-              style={{ cursor: "pointer" }}
-            >
-              <td style={{ color: severityColor(event.severity), fontWeight: 600 }}>
-                {event.severity}
-              </td>
-              <td>{event.title}</td>
-              <td style={{ fontFamily: "monospace", fontSize: 13 }}>
-                {event.assetHostname}
-              </td>
-              <td style={{ fontFamily: "monospace", fontSize: 13 }}>
-                {event.sourceIp}
-              </td>
-              <td style={{ fontSize: 13 }}>
-                {new Date(event.timestamp).toLocaleString()}
-              </td>
+      {filtered.length === 0 ? (
+        <p style={{ color: "#999" }}>No events found.</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Severity</th>
+              <th>Title</th>
+              <th>Threat</th>
+              <th>Asset</th>
+              <th>Source IP</th>
+              <th>Timestamp</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {filtered.length === 0 && <p style={{ color: "#999" }}>No events found.</p>}
+          </thead>
+          <tbody>
+            {filtered.map((event) => (
+              <tr
+                key={event.id}
+                onClick={() => setSelectedEvent(event)}
+                style={{ cursor: "pointer" }}
+              >
+                <td style={{ color: severityColor(event.severity), fontWeight: 600 }}>
+                  {event.severity}
+                </td>
+                <td>{event.title}</td>
+                <td>
+                  {event.threatFlags.length > 0 && (
+                    <span style={{ color: "#8b0000", fontWeight: 600 }}>
+                      ⚠ {event.threatFlags.join(", ")}
+                    </span>
+                  )}
+                </td>
+                <td style={{ fontFamily: "monospace", fontSize: 13 }}>
+                  {event.assetHostname}
+                </td>
+                <td style={{ fontFamily: "monospace", fontSize: 13 }}>
+                  {event.sourceIp ?? "—"}
+                </td>
+                <td style={{ fontSize: 13 }}>{formatDate(event.timestamp)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       <div style={{ marginTop: 12 }}>
-        <button
-          onClick={() => {
-            const blob = new Blob([JSON.stringify(filtered, null, 2)], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "penguwave_events_export.json";
-            a.click();
-            URL.revokeObjectURL(url);
-          }}
-          style={{ fontSize: 13 }}
-        >
-          Export Events (JSON)
+        <button onClick={handleExport} style={{ fontSize: 13 }}>
+          Export CSV
         </button>
       </div>
 
-      {/* Inline event detail */}
       {selectedEvent && (
         <div className="event-detail">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -129,29 +163,29 @@ export default function EventsPage() {
               {selectedEvent.severity}
             </span>
           </p>
-          <p>
-            <strong>Description:</strong>
-          </p>
-          {/* render rich text descriptions */}
+          {selectedEvent.threatFlags.length > 0 && (
+            <p style={{ color: "#8b0000", fontWeight: 600, background: "#fff3f3", padding: "8px 12px", border: "1px solid #ffcccc", marginBottom: 8 }}>
+              ⚠ Contains embedded attack payloads (rendered safely)
+            </p>
+          )}
+          <p><strong>Description:</strong></p>
           <div
-            ref={(el) => {
-              if (el) el.innerHTML = sanitizeHtml(selectedEvent.description);
-            }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedEvent.description) }}
+            style={{ marginBottom: 8, lineHeight: 1.5 }}
           />
           <p>
-            <strong>Asset:</strong> {selectedEvent.assetHostname} ({selectedEvent.assetIp})
+            <strong>Asset:</strong> {selectedEvent.assetHostname}{" "}
+            ({selectedEvent.assetIp ?? "—"})
           </p>
           <p>
-            <strong>Source IP:</strong> {selectedEvent.sourceIp}
+            <strong>Source IP:</strong> {selectedEvent.sourceIp ?? "—"}
           </p>
           <p>
             <strong>Tags:</strong> {selectedEvent.tags.join(", ")}
           </p>
           <p>
-            <strong>Timestamp:</strong> {new Date(selectedEvent.timestamp).toLocaleString()}
+            <strong>Timestamp:</strong> {formatDate(selectedEvent.timestamp)}
           </p>
-          <h3>Raw Event Data</h3>
-          <pre>{JSON.stringify(selectedEvent, null, 2)}</pre>
         </div>
       )}
     </div>

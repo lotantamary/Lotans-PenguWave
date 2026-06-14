@@ -1,14 +1,17 @@
+export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+
 export interface SecurityEvent {
   id: string;
-  timestamp: string;
-  severity: "HIGH" | "MEDIUM" | "LOW";
+  timestamp: string | null;
+  severity: Severity | string;
   title: string;
   description: string;
   assetHostname: string;
-  assetIp: string;
-  sourceIp: string;
+  assetIp: string | null;
+  sourceIp: string | null;
   tags: string[];
-  userId: string;
+  userId: string | null;
+  threatFlags: string[];
 }
 
 export interface User {
@@ -16,5 +19,11 @@ export interface User {
   email: string;
   role: string;
   status: string;
-  password: string;
+}
+
+export interface CurrentUser {
+  id: string;
+  email: string;
+  role: string;
+  status?: string;
 }
