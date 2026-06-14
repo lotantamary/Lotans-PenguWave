@@ -42,6 +42,9 @@ function parseEventRow(row: EventRow): ParsedEvent {
   };
 }
 
+const EVENT_COLUMNS =
+  "id, timestamp, severity, title, description, assetHostname, assetIp, sourceIp, tags, userId, threatFlags";
+
 // Both routes require authentication
 eventsRouter.use(requireAuth);
 
@@ -49,7 +52,7 @@ eventsRouter.use(requireAuth);
 eventsRouter.get("/", (req, res) => {
   const rows = req.db
     .prepare<[], EventRow>(
-      "SELECT id, timestamp, severity, title, description, assetHostname, assetIp, sourceIp, tags, userId, threatFlags FROM events ORDER BY timestamp DESC"
+      `SELECT ${EVENT_COLUMNS} FROM events ORDER BY timestamp DESC`
     )
     .all();
 
@@ -60,7 +63,7 @@ eventsRouter.get("/", (req, res) => {
 eventsRouter.get("/:id", (req, res) => {
   const row = req.db
     .prepare<[string], EventRow>(
-      "SELECT id, timestamp, severity, title, description, assetHostname, assetIp, sourceIp, tags, userId, threatFlags FROM events WHERE id = ?"
+      `SELECT ${EVENT_COLUMNS} FROM events WHERE id = ?`
     )
     .get(req.params.id);
 

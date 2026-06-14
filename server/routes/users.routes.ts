@@ -63,7 +63,11 @@ usersRouter.post("/", (req, res) => {
 
   const created = req.db
     .prepare<[string], UserRow>(`SELECT ${USER_COLUMNS} FROM users WHERE id = ?`)
-    .get(id) as UserRow;
+    .get(id);
+
+  if (!created) {
+    throw new ApiError(500, "Failed to load user");
+  }
 
   res.status(201).json(created);
 });
@@ -86,26 +90,45 @@ usersRouter.patch("/:id", (req, res) => {
 
   const { role, status } = result.data;
 
+  if (req.params.id === req.user!.id && status === "disabled") {
+    throw new ApiError(400, "You cannot disable your own account");
+  }
+
+  const setClauses: string[] = [];
+  const values: unknown[] = [];
   if (role !== undefined) {
-    req.db
-      .prepare<[string, string]>("UPDATE users SET role = ? WHERE id = ?")
-      .run(role, req.params.id);
+    setClauses.push("role = ?");
+    values.push(role);
   }
   if (status !== undefined) {
+    setClauses.push("status = ?");
+    values.push(status);
+  }
+
+  if (setClauses.length > 0) {
+    values.push(req.params.id);
     req.db
-      .prepare<[string, string]>("UPDATE users SET status = ? WHERE id = ?")
-      .run(status, req.params.id);
+      .prepare<unknown[]>(`UPDATE users SET ${setClauses.join(", ")} WHERE id = ?`)
+      .run(...values);
   }
 
   const updated = req.db
     .prepare<[string], UserRow>(`SELECT ${USER_COLUMNS} FROM users WHERE id = ?`)
-    .get(req.params.id) as UserRow;
+    .get(req.params.id);
+
+  if (!updated) {
+    throw new ApiError(500, "Failed to load user");
+  }
 
   res.status(200).json(updated);
 });
 
 // DELETE /api/users/:id
 usersRouter.delete("/:id", (req, res) => {
+  if (req.params.id === req.user!.id) {
+    throw new ApiError(400, "You cannot delete your own account");
+  }
+
   const result = req.db
     .prepare<[string]>("DELETE FROM users WHERE id = ?")
     .run(req.params.id);
