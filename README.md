@@ -120,4 +120,4 @@ Work was done on a branch (`feat/secure-backend`), in small, clearly-described c
 - Session refresh/rotation and a server-side revocation UI.
 - Pagination and indexing on `/api/events`; an audit log of auth and authorization-denial events.
 - Broader test coverage (single-event endpoint, formula-injection flag, TTL expiry) and a browser E2E test.
-- The optional **repo-scanner** extension sketched in `docs/superpowers/plans/` — generalize the threat scanner to audit any codebase for these same classes of flaw.
+- A **repo-scanner** extension — generalize the threat scanner to audit any codebase for these same classes of flaw.
