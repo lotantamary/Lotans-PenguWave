@@ -108,4 +108,10 @@ describe("scanForThreats", () => {
     expect(flags).toContain("xss");
     expect(flags).toContain("formula-injection");
   });
+
+  it("ignores fields not in the scanned set (e.g. id)", () => {
+    // 'id' is not in TEXT_FIELDS, so XSS payloads there must not be flagged
+    const event = { id: "<script>evil</script>" };
+    expect(scanForThreats(event)).toEqual([]);
+  });
 });

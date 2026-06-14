@@ -15,9 +15,8 @@ const TEXT_FIELDS = [
 /** Patterns that indicate XSS payloads */
 const XSS_PATTERNS: RegExp[] = [
   /<script/i,
-  /\son\w+\s*=/i,   // inline event handlers like onerror=, onclick=, etc.
+  /[\s/]on\w+\s*=/i,   // inline event handlers like onerror=, onclick=, <div/onclick=, etc.
   /javascript:/i,
-  /<img[^>]+onerror/i,
 ];
 
 /** Formula injection: trimmed value starts with one of these characters */

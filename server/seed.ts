@@ -98,44 +98,45 @@ export function seed(db: InstanceType<typeof Database>): void {
       (@id, @timestamp, @severity, @title, @description, @assetHostname, @assetIp, @sourceIp, @tags, @userId, @threatFlags)
   `);
 
-  // Seed users
-  for (const user of getUsers()) {
-    const password_hash = bcrypt.hashSync(user.password, BCRYPT_COST);
-    insertUser.run({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-      password_hash,
-    });
-  }
-
-  // Seed events
-  const events = loadEvents();
-  for (const event of events) {
-    // Skip records with no valid string id
-    if (typeof event.id !== "string" || event.id.trim() === "") {
-      continue;
+  // Seed users and events in a single transaction for correctness and speed
+  db.transaction(() => {
+    for (const user of getUsers()) {
+      const password_hash = bcrypt.hashSync(user.password, BCRYPT_COST);
+      insertUser.run({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        password_hash,
+      });
     }
 
-    const tags = Array.isArray(event.tags)
-      ? JSON.stringify(event.tags)
-      : "[]";
+    const events = loadEvents();
+    for (const event of events) {
+      // Skip records with no valid string id
+      if (typeof event.id !== "string" || event.id.trim() === "") {
+        continue;
+      }
 
-    const threatFlags = JSON.stringify(scanForThreats(event));
+      const tags = Array.isArray(event.tags)
+        ? JSON.stringify(event.tags)
+        : "[]";
 
-    insertEvent.run({
-      id: event.id,
-      timestamp: toStringOrNull(event.timestamp),
-      severity: toStringOrNull(event.severity),
-      title: toStringOrNull(event.title),
-      description: toStringOrNull(event.description),
-      assetHostname: toStringOrNull(event.assetHostname),
-      assetIp: toStringOrNull(event.assetIp),
-      sourceIp: toStringOrNull(event.sourceIp),
-      tags,
-      userId: toStringOrNull(event.userId),
-      threatFlags,
-    });
-  }
+      const threatFlags = JSON.stringify(scanForThreats(event));
+
+      insertEvent.run({
+        id: event.id,
+        timestamp: toStringOrNull(event.timestamp),
+        severity: toStringOrNull(event.severity),
+        title: toStringOrNull(event.title),
+        description: toStringOrNull(event.description),
+        assetHostname: toStringOrNull(event.assetHostname),
+        assetIp: toStringOrNull(event.assetIp),
+        sourceIp: toStringOrNull(event.sourceIp),
+        tags,
+        userId: toStringOrNull(event.userId),
+        threatFlags,
+      });
+    }
+  })();
 }
